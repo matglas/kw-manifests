@@ -60,13 +60,13 @@ function kw_manifests_ui_run($form, $form_state) {
   $form['submit'] = array(
     '#type' => 'submit',
     '#value' => t('Run manifests'),
-    '#callback' => array(''),
+    '#callback' => array('kw_manifests_ui_run_submit'),
   );
 
   return $form;
 }
 
-function kw_manifests_ui_run($form, &$form_state) {
+function kw_manifests_ui_run_submit($form, &$form_state) {
 
   // if no explicit enviroment is given, default to production but let the 
   // kw_environment module override this.
@@ -79,6 +79,12 @@ function kw_manifests_ui_run($form, &$form_state) {
 
   $manifests = kw_manifests_info();
 
+  // Set batch.
+  $batch = array(
+    'title' => t('Running manifests'),
+    'operations' => array(),
+    'finished' => 'kw_manifests_ui_batch_finish'
+  );
 
   // execute all manifests
   foreach ($manifests as $id => $manifest) {
@@ -103,25 +109,32 @@ function kw_manifests_ui_run($form, &$form_state) {
       }
     }
 
-    // Set batch.
-
+    $batch['operations'][] = array(
+      'kw_manifests_ui_batch_callback', 
+      array(
+        $manifest
+      ),
+    );
   }
+
+  batch_set($batch);
+  batch_process();
 
   return $form;
 }
 
-function kw_manifests_ui_batch_callback() {
+function kw_manifests_ui_batch_callback($manifest, &$context) {
 
   $result = kw_manifests_run($manifest);
 
   // fail when a manifest could not be applied
   if (!$result) {
-    return drush_set_error(dt('Could not apply manifest !name for !module.', array('!name' => $manifest['name'], '!module' => $manifest['module'])));
+    $context['results'][] = t('Could not apply manifest !name for !module.', array('!name' => $manifest['name'], '!module' => $manifest['module']));
   }
-
 
 }
 
 function kw_manifests_ui_batch_finish() { 
 
+  drupal_set_message('Finished');
 }

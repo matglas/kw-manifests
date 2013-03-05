@@ -1,0 +1,8 @@
+name = Kraftwagen Manifests UI
+description = User Interface to run Krafwagen Manifests
+package = Kraftwagen
+core = 7.x
+
+dependencies[] = kw_manifests
+dependencies[] = kw_environment
+

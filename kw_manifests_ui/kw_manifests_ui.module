@@ -1,0 +1,127 @@
+<?php
+
+/**
+ * Implements hook_menu().
+ */
+function kw_manifests_ui_menu() {
+
+  $items = array();
+
+  $items['admin/config/development/kw-manifests'] = array(
+    'title' => 'Krafwagen Manifests',
+    'type' => MENU_NORMAL_ITEM,
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('kw_manifests_ui_run'),
+    'access callback' => TRUE,
+  );
+
+  return $items;
+}
+
+function kw_manifests_ui_run($form, $form_state) {
+
+  $environment = kw_environment();
+  $environment_location = kw_environment_location();
+
+  $form['environment_info'] = array(
+    'environment' => array(
+      '#markup' => '<p><b>Environment</b>: <span>' . $environment . '</span></p>',
+    ),
+  );
+
+  $manifests = kw_manifests_info();
+  $manifests_table = array();
+
+  // Headers
+  $manifests_table = array(
+    '#theme' => 'table',
+    '#header' => array(
+      t('Manifest'),
+      t('Applicable'),
+      t('Dependency'),
+    ),
+    '#attributes' => array(),
+    '#caption' => "",
+    '#colgroups' => array(),
+    '#sticky' => TRUE,
+    '#empty' => array(),
+  );
+
+  foreach ($manifests as $manifest => $value) {
+    $row = array(
+      $value['name'],
+      $value['applicable'] ? t('Applicable') : t('Not applicable'),
+      isset($value['dependency']) ? implode(', ', $value['dependency']) : '',
+    );
+    $manifests_table['#rows'][] = $row;
+  }
+  $form['manifests'] = $manifests_table;
+
+  $form['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t('Run manifests'),
+    '#callback' => array(''),
+  );
+
+  return $form;
+}
+
+function kw_manifests_ui_run($form, &$form_state) {
+
+  // if no explicit enviroment is given, default to production but let the 
+  // kw_environment module override this.
+  if (!isset($environment)) {
+    $environment = 'production';
+    if (function_exists('kw_environment')) {
+      $environment = kw_environment();
+    }
+  }
+
+  $manifests = kw_manifests_info();
+
+
+  // execute all manifests
+  foreach ($manifests as $id => $manifest) {
+    // do not execute manifests that require an environment that is not the 
+    // current
+    if (!empty($manifest['require environment'])) {
+      if (!is_array($manifest['require environment'])) {
+        $manifest['require environment'] = array($manifest['require environment']);
+      }
+      if (!in_array($environment, $manifest['require environment'])) {
+        continue;
+      }
+    }
+
+    // do not execute manifests that exclude the current environment
+    if (!empty($manifest['exclude environment'])) {
+      if (!is_array($manifest['exclude environment'])) {
+        $manifest['exclude environment'] = array($manifest['exclude environment']);
+      }
+      if (in_array($environment, $manifest['exclude environment'])) {
+        continue;
+      }
+    }
+
+    // Set batch.
+
+  }
+
+  return $form;
+}
+
+function kw_manifests_ui_batch_callback() {
+
+  $result = kw_manifests_run($manifest);
+
+  // fail when a manifest could not be applied
+  if (!$result) {
+    return drush_set_error(dt('Could not apply manifest !name for !module.', array('!name' => $manifest['name'], '!module' => $manifest['module'])));
+  }
+
+
+}
+
+function kw_manifests_ui_batch_finish() { 
+
+}
